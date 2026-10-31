@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#05070f">
+<title>Duskbound</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Cellipse cx=%2216%22 cy=%2217%22 rx=%2212%22 ry=%2213%22 fill=%22%23f1e9e1%22/%3E%3Cellipse cx=%2211.5%22 cy=%2217%22 rx=%223%22 ry=%225%22/%3E%3Cellipse cx=%2220.5%22 cy=%2217%22 rx=%223%22 ry=%225%22/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,700;1,500&family=Cormorant+SC:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  html, body {
+    margin: 0; padding: 0; height: 100%; overflow: hidden;
+    background: #03040a; color: #dfe6ff;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+  #wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  canvas { display: block; image-rendering: auto; }
+
+  #touch { position: fixed; inset: 0; pointer-events: none; display: none; z-index: 5; }
+  body.touch #touch { display: block; }
+  .pad {
+    position: absolute; pointer-events: auto;
+    bottom: max(16px, env(safe-area-inset-bottom));
+  }
+  #dpad {
+    left: max(16px, env(safe-area-inset-left));
+    width: 156px; height: 156px;
+    display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
+  }
+  #dpad::before {
+    content: ""; position: absolute; inset: 0; margin: auto;
+    width: 156px; height: 52px; top: 52px; border-radius: 10px;
+    background: rgba(20, 24, 44, .55); box-shadow: 0 0 0 2px rgba(150, 170, 230, .25) inset;
+  }
+  #dpad::after {
+    content: ""; position: absolute; left: 52px; top: 0;
+    width: 52px; height: 156px; border-radius: 10px;
+    background: rgba(20, 24, 44, .55); box-shadow: 0 0 0 2px rgba(150, 170, 230, .25) inset;
+  }
+  .btn {
+    position: relative; z-index: 1; border: 0; margin: 0; padding: 0;
+    background: transparent; color: rgba(220, 230, 255, .8);
+    font: 700 20px/1 "Cormorant SC", serif; touch-action: none;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .btn.on { color: #fff; text-shadow: 0 0 10px #9fc0ff; }
+  #dpad .up { grid-column: 2; grid-row: 1; }
+  #dpad .left { grid-column: 1; grid-row: 2; }
+  #dpad .right { grid-column: 3; grid-row: 2; }
+  #dpad .down { grid-column: 2; grid-row: 3; }
+  #dpad .mid { grid-column: 2; grid-row: 2; pointer-events: none; }
+  #dpad .mid::after { content: ""; width: 18px; height: 18px; border-radius: 50%; background: rgba(150, 170, 230, .18); }
+  #ab {
+    right: max(16px, env(safe-area-inset-right));
+    width: 190px; height: 130px;
+  }
+  .round {
+    position: absolute; width: 74px; height: 74px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #e0505a, #9b1e28 70%);
+    box-shadow: 0 0 0 4px rgba(20, 24, 44, .7), 0 4px 0 4px rgba(0, 0, 0, .35);
+    color: #fff; font-size: 26px; opacity: .8;
+  }
+  .round.on { transform: translateY(2px); opacity: 1; box-shadow: 0 0 0 4px rgba(20, 24, 44, .7), 0 0 18px 4px rgba(255, 120, 120, .45); }
+  .round small { position: absolute; top: -22px; left: 0; right: 0; text-align: center; font: 500 13px "Cormorant SC", serif; color: rgba(220, 230, 255, .7); }
+  #ab .b { left: 0; bottom: 0; }
+  #ab .a { right: 0; top: 0; }
+
+  #rotate {
+    position: fixed; inset: 0; z-index: 10; display: none;
+    align-items: center; justify-content: center; text-align: center; padding: 24px;
+    background: #05070f; font: 500 24px/1.4 "Cormorant Garamond", serif; color: #cfd8ff;
+  }
+  @media (orientation: portrait) { body.touch #rotate { display: flex; } }
+</style>
+</head>
+<body>
+<div id="wrap"><canvas id="game" aria-label="Duskbound — игровое поле"></canvas></div>
+
+<div id="touch" aria-hidden="true">
+  <div id="dpad" class="pad">
+    <button class="btn up" data-k="jump">▲</button>
+    <button class="btn left" data-k="left">◀</button>
+    <span class="btn mid"></span>
+    <button class="btn right" data-k="right">▶</button>
+    <button class="btn down" data-k="down">▼</button>
+  </div>
+  <div id="ab" class="pad">
+    <button class="btn round b" data-k="attack">B<small>удар</small></button>
+    <button class="btn round a" data-k="jump">A<small>прыжок</small></button>
+  </div>
+</div>
+
+<div id="rotate">Поверните телефон горизонтально,<br>чтобы спуститься в сумерки</div>
+
+<script src="game.js"></script>
+</body>
+</html>
