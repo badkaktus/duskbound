@@ -49,6 +49,27 @@ function resize() {
   bgCache.length = 0;
 }
 window.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => setTimeout(resize, 250));
+document.addEventListener('fullscreenchange', resize);
+document.addEventListener('webkitfullscreenchange', resize);
+if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
+
+/* ------------------------------ Fullscreen ----------------------------- */
+
+const isLandscape = () => (window.matchMedia ? matchMedia('(orientation: landscape)').matches : innerWidth > innerHeight);
+const isStandalone = () => matchMedia('(display-mode: fullscreen)').matches || matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+function goFullscreen() {
+  if (!document.body.classList.contains('touch') || !isLandscape() || isStandalone()) return;
+  const d = document, el = d.documentElement;
+  if (d.fullscreenElement || d.webkitFullscreenElement) return;
+  const req = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (!req) return;
+  try {
+    const r = req.call(el, { navigationUI: 'hide' });
+    const lock = () => { try { screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => {}); } catch (_) {} };
+    if (r && r.then) r.then(lock).catch(() => {}); else lock();
+  } catch (_) {}
+}
 
 /* ------------------------------- Images -------------------------------- */
 
@@ -358,12 +379,13 @@ function onPointer(e) {
   }
 }
 const touchEl = document.getElementById('touch');
-touchEl.addEventListener('pointerdown', (e) => { e.preventDefault(); onPointer(e); anyInput(); });
+touchEl.addEventListener('pointerdown', (e) => { e.preventDefault(); onPointer(e); goFullscreen(); anyInput(); });
 window.addEventListener('pointermove', (e) => { if (pointerKey.has(e.pointerId)) onPointer(e); });
 window.addEventListener('pointerup', onPointer);
 window.addEventListener('pointercancel', onPointer);
 window.addEventListener('pointerdown', (e) => {
   if (e.pointerType === 'touch' && !document.body.classList.contains('touch')) document.body.classList.add('touch');
+  if (e.pointerType === 'touch') goFullscreen();
   if (!e.target.closest('#touch')) anyInput();
 });
 document.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -703,9 +725,6 @@ function anyInput() {
   AU.init();
   if (S.mode === 'title') {
     startGame();
-    if (isTouch && document.documentElement.requestFullscreen && !document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
-    }
   } else if (S.mode === 'victory' && S.endT > 1.5) {
     S.mode = 'title'; AU.setMusic('none');
   }
